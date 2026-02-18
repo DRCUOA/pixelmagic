@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelMagic – Pixel Art Creator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #1a1a1a; color: #ddd; font-family: system-ui, sans-serif; padding: 24px; }
+    body > * + * { margin-top: 24px; }
+    .container { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; }
+    .image-section { flex-shrink: 0; align-self: flex-start; padding: 20px; margin: 0; border: 1px solid #333; border-radius: 8px; background: #222; }
+    .image-section h2 { margin: 0 0 16px 0; font-size: 14px; font-weight: 500; }
+    .palette-section { flex-shrink: 0; align-self: flex-start; padding: 20px; margin: 0; border: 1px solid #333; border-radius: 8px; background: #222; min-width: 200px; }
+    .palette-section h2 { margin: 0 0 16px 0; font-size: 14px; font-weight: 500; }
+    .base-palette-sticky { padding: 0 0 24px 0; margin: 0; }
+    .extracted-palette-scroll { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; max-height: 280px; overflow-y: auto; }
+    .extracted-palette-scroll h2 { margin-top: 0; }
+    .palette-section .count { font-size: 12px; opacity: 0.8; margin-bottom: 12px; }
+    .palette { display: flex; flex-wrap: wrap; gap: 2px; max-width: 400px; }
+    .swatch { width: 8px; height: 8px; flex-shrink: 0; cursor: pointer; transition: outline 0.12s ease, outline-offset 0.12s ease; }
+    .base-palette { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; padding: 4px 0; }
+    .base-swatch { width: 28px; height: 28px; flex-shrink: 0; position: relative; cursor: pointer; border: 2px solid transparent; border-radius: 4px; transition: border-color 0.12s ease, background-color 0.12s ease; padding: 2px; }
+    .base-swatch:hover, .base-swatch.selected, .base-swatch.canvas-hover-highlight { border-color: #fff; }
+    .swatch.canvas-hover-highlight { outline: 2px solid #ffffff; outline-offset: 1px; }
+    .base-swatch .base-color-input { position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+    body.color-picker-active .load-section,
+    body.color-picker-active .dims-select,
+    body.color-picker-active .image-section,
+    body.color-picker-active .extracted-palette-scroll { pointer-events: none; }
+    svg { display: block; cursor: crosshair; }
+    #svgContainer { width: 512px; height: 512px; flex-shrink: 0; position: relative; margin: 20px 0; }
+    .selection-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+    .selection-box { position: absolute; border: 2px solid #e85d04; background: rgba(232,93,4,0.12); box-sizing: border-box; }
+    #svgContainer svg { width: 100%; height: 100%; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges; }
+    #svgContainer svg rect { pointer-events: none; }
+    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; padding: 4px 0; }
+    .toolbar:empty { display: none; }
+    .toolbar button { padding: 10px 14px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 13px; transition: background 0.12s ease, border-color 0.12s ease; }
+    .toolbar button:hover { background: #444; }
+    .toolbar button.active { background: #555; border-color: #888; }
+    .toolbar .tool-options { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+    .toolbar .tool-options label { font-size: 12px; opacity: 0.9; }
+    .toolbar .tool-options select { padding: 4px 6px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; font-size: 12px; }
+    #pencilColor { width: 24px; height: 24px; padding: 0; border: 1px solid #555; border-radius: 4px; cursor: pointer; background: transparent; }
+    .dims-select { margin-bottom: 16px; padding: 4px 0; }
+    #zoomOutBtn, #zoomInBtn { padding: 8px 12px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 16px; line-height: 1; width: 36px; transition: background 0.12s ease; }
+    #zoomOutBtn:hover, #zoomInBtn:hover { background: #444; }
+    #zoomOutBtn:disabled, #zoomInBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dims-select label { margin-right: 8px; font-size: 13px; }
+    .dims-select select { padding: 6px 10px; background: #333; color: #ddd; border: 1px solid #555; border-radius: 4px; font-size: 13px; }
+    .load-section { margin-bottom: 24px; padding: 20px; border: 1px solid #333; border-radius: 8px; background: #222; }
+    .load-section input[type="file"] { display: none; }
+    .load-section .load-btn { padding: 10px 20px; background: #c1ae97; color: #1a1a1a; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.12s ease; }
+    .load-section .load-btn:hover { background: #d4c4b0; }
+    .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; gap: 16px; }
+    .loading-overlay.visible { display: flex; }
+    .spinner { width: 48px; height: 48px; border: 4px solid #333; border-top-color: #c1ae97; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .loading-overlay .message { color: #ddd; font-size: 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #svgContainer svg[data-highlight-base="0"] rect[data-base-index="0"],
+    #svgContainer svg[data-highlight-base="1"] rect[data-base-index="1"],
+    #svgContainer svg[data-highlight-base="2"] rect[data-base-index="2"],
+    #svgContainer svg[data-highlight-base="3"] rect[data-base-index="3"],
+    #svgContainer svg[data-highlight-base="4"] rect[data-base-index="4"],
+    #svgContainer svg[data-highlight-base="5"] rect[data-base-index="5"],
+    #svgContainer svg[data-highlight-base="6"] rect[data-base-index="6"],
+    #svgContainer svg[data-highlight-base="7"] rect[data-base-index="7"],
+    #svgContainer svg[data-highlight-base="8"] rect[data-base-index="8"],
+    #svgContainer svg[data-highlight-base="9"] rect[data-base-index="9"],
+    #svgContainer svg[data-highlight-base="10"] rect[data-base-index="10"],
+    #svgContainer svg[data-highlight-base="11"] rect[data-base-index="11"],
+    #svgContainer svg[data-highlight-base="12"] rect[data-base-index="12"],
+    #svgContainer svg[data-highlight-base="13"] rect[data-base-index="13"],
+    #svgContainer svg[data-highlight-base="14"] rect[data-base-index="14"],
+    #svgContainer svg[data-highlight-base="15"] rect[data-base-index="15"] {
+      stroke: #ffffff;
+      stroke-width: 0.15;
+    }
+  </style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span class="message" id="loadingMessage">Processing image…</span>
+</div>
+<div class="load-section">
+  <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp">
+    <button type="button" class="load-btn" id="loadBtn">Load image (JPG, PNG, GIF, WebP)</button>
+    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+      <input type="checkbox" id="maintainAspectCheck">
+      Maintain aspect ratio
+    </label>
+    <span class="highlight-count" id="highlightCount" style="display: none; font-size: 13px; opacity: 0.9;"></span>
+  </div>
+  <div class="dims-select" id="dimsSelect" style="margin-top: 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+    <label>Pixel size:</label>
+    <select id="dimsSelectEl">
+      <option value="2">2×2</option>
+      <option value="4">4×4</option>
+      <option value="8">8×8</option>
+      <option value="16">16×16</option>
+      <option value="32">32×32</option>
+      <option value="64">64×64</option>
+      <option value="128" selected>128×128</option>
+      <option value="256">256×256</option>
+      <option value="512">512×512</option>
+      <option value="720">720×720</option>
+      <option value="1080">1080×1080</option>
+    </select>
+    <span style="margin-left: 8px;">Zoom:</span>
+    <button type="button" id="zoomOutBtn" title="Zoom out (fewer pixels)">−</button>
+    <button type="button" id="zoomInBtn" title="Zoom in (more pixels)">+</button>
+  </div>
+</div>
+
+<div class="container" id="mainContainer" style="display: none;">
+  <div class="image-section">
+    <div class="toolbar">
+      <button type="button" id="boxSelectBtn" class="active" title="Click and drag on canvas to select area">Box Select</button>
+      <button type="button" id="pixelDragBtn" title="Drag a pixel to swap it with another">Pixel Drag</button>
+      <button type="button" id="pencilBtn" title="Draw on canvas">Pencil</button>
+      <span id="pencilOptions" class="tool-options" style="display: none;">
+        <label>Size:</label>
+        <select id="pencilThickness">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+        <label style="margin-left: 8px;">Color:</label>
+        <input type="color" id="pencilColor" value="#000000" title="Draw color">
+      </span>
+      <button type="button" id="eraserBtn" title="Erase pixels to first base color">Eraser</button>
+      <span id="eraserOptions" class="tool-options" style="display: none;">
+        <label>Size:</label>
+        <select id="eraserThickness">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </span>
+      <button type="button" id="clearSelectionBtn">Clear selection</button>
+      <button type="button" id="undoBtn" title="Undo">Undo</button>
+      <button type="button" id="exportPngBtn">Export PNG</button>
+      <button type="button" id="exportSvgBtn">Export SVG</button>
+    </div>
+    <h2 id="canvasTitle">Canvas</h2>
+    <div id="svgContainer"></div>
+  </div>
+  <div class="palette-section">
+    <div class="base-palette-sticky">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+        <div>
+          <h2>Base palette (4×4)</h2>
+          <p class="count">Edit base colors – all pixels referencing them update.</p>
+        </div>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; white-space: nowrap;" title="When checked, changing a base color recalculates brightness offsets for all pixels to the nearest base color">
+          <input type="checkbox" id="reprocessTonesCheck">
+          Reprocess tones
+        </label>
+      </div>
+      <div class="base-palette" id="basePalette"></div>
+    </div>
+    <div class="extracted-palette-scroll">
+      <h2>Extracted palette</h2>
+      <p class="count" id="extractedCount">Unique colors in image</p>
+      <div class="palette" id="extractedPalette"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const NUM_BASE = 16;
+  const CANVAS_DISPLAY_SIZE = 512;
+  let pixels = null;
+  let baseColors = [];
+  let extractedColors = [];
+  let canvasW = 128, canvasH = 128;
+  let history = [];
+  const HISTORY_LIMIT = 50;
+  let loadedImage = null;
+  let selectionBounds = null;
+  let isSelecting = false;
+  let selectStartX = 0, selectStartY = 0;
+  let isPixelDragMode = false;
+  let isDraggingPixel = false;
+  let pixelDragStartX = 0, pixelDragStartY = 0;
+  let isPencilMode = false;
+  let isEraserMode = false;
+  let isDrawing = false;
+  let lastHighlightPixel = null;
+  let mousemoveRaf = null;
+
+  function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  }
+  function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+  }
+  function colorDist(a, b) {
+    return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2);
+  }
+
+  function medianCutQuantize(colors, k) {
+    if (colors.length === 0) return [];
+    let buckets = [colors.map(c => [...c])];
+    while (buckets.length < k && buckets.some(b => b.length > 1)) {
+      let maxRange = -1;
+      let splitIdx = 0;
+      let splitChannel = 0;
+      for (let i = 0; i < buckets.length; i++) {
+        const b = buckets[i];
+        if (b.length < 2) continue;
+        for (let ch = 0; ch < 3; ch++) {
+          const vals = b.map(c => c[ch]);
+          const min = Math.min(...vals), max = Math.max(...vals);
+          const range = max - min;
+          if (range > maxRange) {
+            maxRange = range;
+            splitIdx = i;
+            splitChannel = ch;
+          }
+        }
+      }
+      const b = buckets[splitIdx];
+      b.sort((a, c) => a[splitChannel] - c[splitChannel]);
+      const mid = Math.floor(b.length / 2);
+      const left = b.slice(0, mid);
+      const right = b.slice(mid);
+      buckets.splice(splitIdx, 1, left, right);
+    }
+    return buckets.map(b => {
+      if (b.length === 0) return [128, 128, 128];
+      const r = Math.round(b.reduce((s, c) => s + c[0], 0) / b.length);
+      const g = Math.round(b.reduce((s, c) => s + c[1], 0) / b.length);
+      const bl = Math.round(b.reduce((s, c) => s + c[2], 0) / b.length);
+      return [r, g, bl];
+    });
+  }
+
+  function sampleColors(imgData, maxColors) {
+    const total = (imgData.data.length / 4) | 0;
+    if (total <= maxColors) {
+      const colors = [];
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        colors.push([imgData.data[i], imgData.data[i+1], imgData.data[i+2]]);
+      }
+      return colors;
+    }
+    const step = Math.ceil(total / maxColors);
+    const colors = [];
+    for (let i = 0; i < total; i += step) {
+      const j = i * 4;
+      colors.push([imgData.data[j], imgData.data[j+1], imgData.data[j+2]]);
+    }
+    return colors;
+  }
+
+  function analyzeImage(imgData, w, h) {
+    const colors = sampleColors(imgData, 16384);
+    const basePalette = medianCutQuantize(colors, NUM_BASE);
+    const pixelsOut = [];
+    const uniqueMap = new Map();
+    for (let y = 0; y < h; y++) {
+      const row = [];
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = imgData.data[i], g = imgData.data[i+1], b = imgData.data[i+2];
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let bi = 0; bi < basePalette.length; bi++) {
+          const d = colorDist([r,g,b], basePalette[bi]);
+          if (d < bestDist) {
+            bestDist = d;
+            bestIdx = bi;
+          }
+        }
+        const base = basePalette[bestIdx];
+        const dr = r - base[0], dg = g - base[1], db = b - base[2];
+        row.push({ baseIndex: bestIdx, dr, dg, db });
+        const hex = rgbToHex(r, g, b);
+        uniqueMap.set(hex, true);
+      }
+      pixelsOut.push(row);
+    }
+    return {
+      pixels: pixelsOut,
+      baseColors: basePalette.map(c => rgbToHex(...c)),
+      extractedColors: Array.from(uniqueMap.keys()).sort()
+    };
+  }
+
+  function pixelateImage(img, targetW, targetH) {
+    const c = document.createElement('canvas');
+    c.width = targetW;
+    c.height = targetH;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    return ctx.getImageData(0, 0, targetW, targetH);
+  }
+
+  function cropImageToSelection(img, bounds) {
+    const { x1, y1, x2, y2 } = bounds;
+    const xMin = Math.min(x1, x2), xMax = Math.max(x1, x2);
+    const yMin = Math.min(y1, y2), yMax = Math.max(y1, y2);
+    const srcX1 = (xMin / canvasW) * img.naturalWidth;
+    const srcY1 = (yMin / canvasH) * img.naturalHeight;
+    const srcX2 = ((xMax + 1) / canvasW) * img.naturalWidth;
+    const srcY2 = ((yMax + 1) / canvasH) * img.naturalHeight;
+    const cropW = Math.max(1, srcX2 - srcX1);
+    const cropH = Math.max(1, srcY2 - srcY1);
+    const c = document.createElement('canvas');
+    c.width = cropW;
+    c.height = cropH;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, srcX1, srcY1, cropW, cropH, 0, 0, cropW, cropH);
+    return new Promise((resolve, reject) => {
+      const cropped = new Image();
+      cropped.onload = () => resolve(cropped);
+      cropped.onerror = () => reject(new Error('Failed to crop image'));
+      cropped.src = c.toDataURL('image/png');
+    });
+  }
+
+  function saveHistory() {
+    history.push(baseColors.slice());
+    if (history.length > HISTORY_LIMIT) history.shift();
+  }
+
+  function reprocessTones() {
+    const baseRgb = baseColors.map(hex => hexToRgb(hex));
+    const uniqueMap = new Map();
+    for (let y = 0; y < canvasH; y++) {
+      for (let x = 0; x < canvasW; x++) {
+        const p = pixels[y][x];
+        const base = hexToRgb(baseColors[p.baseIndex]);
+        const r = base[0] + p.dr, g = base[1] + p.dg, b = base[2] + p.db;
+        let bestIdx = 0;
+        let bestDist = Infinity;
+        for (let bi = 0; bi < baseRgb.length; bi++) {
+          const d = colorDist([r, g, b], baseRgb[bi]);
+          if (d < bestDist) {
+            bestDist = d;
+            bestIdx = bi;
+          }
+        }
+        const best = baseRgb[bestIdx];
+        pixels[y][x] = {
+          baseIndex: bestIdx,
+          dr: r - best[0],
+          dg: g - best[1],
+          db: b - best[2]
+        };
+        uniqueMap.set(rgbToHex(r, g, b), true);
+      }
+    }
+    extractedColors = Array.from(uniqueMap.keys()).sort();
+  }
+
+  function onBaseColorChange(baseIndex, newHex) {
+    saveHistory();
+    const [r, g, b] = hexToRgb(newHex);
+    baseColors[baseIndex] = newHex;
+    const swatch = document.querySelector(`.base-swatch[data-base-index="${baseIndex}"]`);
+    if (swatch) swatch.style.backgroundColor = newHex;
+    if (document.getElementById('reprocessTonesCheck').checked) {
+      reprocessTones();
+      const container = document.getElementById('svgContainer');
+      const svg = container.querySelector('svg');
+      if (svg) {
+        const newSvg = buildSvg();
+        svg.replaceWith(newSvg);
+        attachSvgListeners(container.querySelector('svg'));
+      }
+      renderBasePalette();
+      renderExtractedPalette();
+    } else {
+      document.querySelectorAll(`.image-section svg rect[data-base-index="${baseIndex}"]`).forEach(rect => {
+        const dr = parseInt(rect.dataset.dr, 10), dg = parseInt(rect.dataset.dg, 10), db = parseInt(rect.dataset.db, 10);
+        rect.setAttribute('fill', rgbToHex(r + dr, g + dg, b + db));
+      });
+    }
+  }
+
+  function buildSvg() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', CANVAS_DISPLAY_SIZE);
+    svg.setAttribute('height', CANVAS_DISPLAY_SIZE);
+    svg.setAttribute('viewBox', `0 0 ${canvasW} ${canvasH}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    const frag = document.createDocumentFragment();
+    for (let y = 0; y < canvasH; y++) {
+      for (let x = 0; x < canvasW; x++) {
+        const p = pixels[y][x];
+        const base = hexToRgb(baseColors[p.baseIndex]);
+        const fill = rgbToHex(base[0] + p.dr, base[1] + p.dg, base[2] + p.db);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', 1);
+        rect.setAttribute('height', 1);
+        rect.setAttribute('fill', fill);
+        rect.setAttribute('data-base-index', p.baseIndex);
+        rect.setAttribute('data-dr', p.dr);
+        rect.setAttribute('data-dg', p.dg);
+        rect.setAttribute('data-db', p.db);
+        rect.setAttribute('data-x', x);
+        rect.setAttribute('data-y', y);
+        frag.appendChild(rect);
+      }
+    }
+    svg.appendChild(frag);
+    return svg;
+  }
+
+  function getColorsInBounds(bounds) {
+    const { x1, y1, x2, y2 } = bounds;
+    const xMin = Math.min(x1, x2), xMax = Math.max(x1, x2);
+    const yMin = Math.min(y1, y2), yMax = Math.max(y1, y2);
+    const baseIndices = new Set();
+    const uniqueColors = new Set();
+    for (let y = yMin; y <= yMax; y++) {
+      for (let x = xMin; x <= xMax; x++) {
+        if (x < 0 || x >= canvasW || y < 0 || y >= canvasH) continue;
+        const p = pixels[y][x];
+        baseIndices.add(p.baseIndex);
+        const base = hexToRgb(baseColors[p.baseIndex]);
+        uniqueColors.add(rgbToHex(base[0] + p.dr, base[1] + p.dg, base[2] + p.db));
+      }
+    }
+    return { baseIndices, uniqueColors };
+  }
+
+  function renderBasePalette() {
+    const el = document.getElementById('basePalette');
+    el.innerHTML = '';
+    const indicesToShow = selectionBounds
+      ? getColorsInBounds(selectionBounds).baseIndices
+      : null;
+    baseColors.forEach((hex, i) => {
+      if (indicesToShow && !indicesToShow.has(i)) return;
+      const div = document.createElement('div');
+      div.className = 'base-swatch';
+      div.style.backgroundColor = hex;
+      div.title = hex + ' – click to edit, hover to highlight pixels';
+      div.dataset.baseIndex = i;
+      div.setAttribute('role', 'button');
+      div.tabIndex = 0;
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = hex;
+      input.className = 'base-color-input';
+      input.dataset.baseIndex = i;
+      input.addEventListener('input', () => onBaseColorChange(i, input.value));
+      input.addEventListener('focus', () => document.body.classList.add('color-picker-active'));
+      input.addEventListener('blur', () => document.body.classList.remove('color-picker-active'));
+      input.addEventListener('change', () => document.body.classList.remove('color-picker-active'));
+      div.addEventListener('click', () => input.click());
+      div.addEventListener('mouseenter', () => {
+        const svg = document.querySelector('#svgContainer svg');
+        if (svg) {
+          svg.setAttribute('data-highlight-base', String(i));
+          updateHighlightCount(i);
+        }
+      });
+      div.addEventListener('mouseleave', () => {
+        const svg = document.querySelector('#svgContainer svg');
+        if (svg) svg.removeAttribute('data-highlight-base');
+        updateHighlightCount(null);
+      });
+      div.appendChild(input);
+      el.appendChild(div);
+    });
+  }
+
+  function renderExtractedPalette() {
+    const unique = new Set();
+    if (selectionBounds) {
+      const { uniqueColors } = getColorsInBounds(selectionBounds);
+      uniqueColors.forEach(c => unique.add(c));
+    } else {
+      for (let y = 0; y < canvasH; y++) {
+        for (let x = 0; x < canvasW; x++) {
+          const p = pixels[y][x];
+          const base = hexToRgb(baseColors[p.baseIndex]);
+          unique.add(rgbToHex(base[0] + p.dr, base[1] + p.dg, base[2] + p.db));
+        }
+      }
+    }
+    const el = document.getElementById('extractedPalette');
+    el.innerHTML = '';
+    Array.from(unique).sort().forEach(hex => {
+      const swatch = document.createElement('div');
+      swatch.className = 'swatch';
+      swatch.style.backgroundColor = hex;
+      swatch.title = hex;
+      swatch.dataset.color = hex;
+      el.appendChild(swatch);
+    });
+    document.getElementById('extractedCount').textContent = `${unique.size} unique colors`;
+  }
+
+  function coordFromEvent(e) {
+    const svg = document.querySelector('.image-section svg');
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const scaleX = canvasW / rect.width;
+    const scaleY = canvasH / rect.height;
+    const px = Math.floor((e.clientX - rect.left) * scaleX);
+    const py = Math.floor((e.clientY - rect.top) * scaleY);
+    if (px < 0 || px >= canvasW || py < 0 || py >= canvasH) return null;
+    return { x: px, y: py };
+  }
+
+  function highlightSwatchesForPixel(px, py) {
+    if (!pixels || px < 0 || px >= canvasW || py < 0 || py >= canvasH) return;
+    if (lastHighlightPixel && lastHighlightPixel.x === px && lastHighlightPixel.y === py) return;
+    lastHighlightPixel = { x: px, y: py };
+    const p = pixels[py][px];
+    const base = hexToRgb(baseColors[p.baseIndex]);
+    const pixelHex = rgbToHex(base[0] + p.dr, base[1] + p.dg, base[2] + p.db);
+    document.querySelectorAll('.base-swatch, .swatch').forEach(el => el.classList.remove('canvas-hover-highlight'));
+    const baseSwatch = document.querySelector(`.base-swatch[data-base-index="${p.baseIndex}"]`);
+    if (baseSwatch) baseSwatch.classList.add('canvas-hover-highlight');
+    const normHex = pixelHex.toLowerCase();
+    document.querySelectorAll('.palette .swatch').forEach(swatch => {
+      if ((swatch.dataset.color || '').toLowerCase() === normHex) {
+        swatch.classList.add('canvas-hover-highlight');
+        swatch.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    });
+  }
+
+  function clearSwatchHighlights() {
+    lastHighlightPixel = null;
+    document.querySelectorAll('.base-swatch, .swatch').forEach(el => el.classList.remove('canvas-hover-highlight'));
+  }
+
+  function attachSvgListeners(svg) {
+    svg.addEventListener('mousedown', handleBoxSelectDown);
+    svg.addEventListener('mousemove', (e) => {
+      if (isSelecting) handleBoxSelectMove(e);
+      else if (isDrawing) handleBoxSelectMove(e);
+      else if (!isDraggingPixel) {
+        if (mousemoveRaf) cancelAnimationFrame(mousemoveRaf);
+        mousemoveRaf = requestAnimationFrame(() => {
+          mousemoveRaf = null;
+          const pos = coordFromEvent(e);
+          if (pos) highlightSwatchesForPixel(pos.x, pos.y);
+          else { lastHighlightPixel = null; clearSwatchHighlights(); }
+        });
+      }
+    });
+    svg.addEventListener('mouseleave', () => {
+      if (!isSelecting && !isDraggingPixel && !isDrawing) clearSwatchHighlights();
+    });
+    svg.addEventListener('mouseup', handleBoxSelectUp);
+  }
+
+  function updateHighlightCount(baseIndex) {
+    const el = document.getElementById('highlightCount');
+    if (!el) return;
+    if (baseIndex === null) {
+      el.style.display = 'none';
+      return;
+    }
+    if (!pixels) return;
+    let count = 0;
+    for (let y = 0; y < canvasH; y++) {
+      for (let x = 0; x < canvasW; x++) {
+        if (pixels[y][x].baseIndex === baseIndex) count++;
+      }
+    }
+    el.textContent = count.toLocaleString() + ' pixel' + (count === 1 ? '' : 's') + ' highlighted';
+    el.style.display = 'block';
+  }
+
+  function pixelToDisplay(x, y) {
+    const scaleX = CANVAS_DISPLAY_SIZE / canvasW;
+    const scaleY = CANVAS_DISPLAY_SIZE / canvasH;
+    return { x: x * scaleX, y: y * scaleY };
+  }
+
+  function updateSelectionBox(x1, y1, x2, y2) {
+    const container = document.getElementById('svgContainer');
+    let overlay = document.getElementById('selectionOverlay');
+    let box = document.getElementById('selectionBox');
+    if (!overlay || !box) {
+      overlay = document.createElement('div');
+      overlay.className = 'selection-overlay';
+      overlay.id = 'selectionOverlay';
+      overlay.style.display = 'none';
+      box = document.createElement('div');
+      box.className = 'selection-box';
+      box.id = 'selectionBox';
+      overlay.appendChild(box);
+      container.appendChild(overlay);
+    }
+    const xMin = Math.min(x1, x2), xMax = Math.max(x1, x2);
+    const yMin = Math.min(y1, y2), yMax = Math.max(y1, y2);
+    const p1 = pixelToDisplay(xMin, yMin);
+    const p2 = pixelToDisplay(xMax + 1, yMax + 1);
+    const w = Math.max(4, p2.x - p1.x);
+    const h = Math.max(4, p2.y - p1.y);
+    box.style.left = p1.x + 'px';
+    box.style.top = p1.y + 'px';
+    box.style.width = w + 'px';
+    box.style.height = h + 'px';
+    overlay.style.display = 'block';
+  }
+
+  function hideSelectionBox() {
+    const overlay = document.getElementById('selectionOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function colorToPixelData(r, g, b) {
+    if (!baseColors.length) return null;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    const baseRgb = baseColors.map(hex => hexToRgb(hex));
+    for (let bi = 0; bi < baseRgb.length; bi++) {
+      const d = colorDist([r, g, b], baseRgb[bi]);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = bi;
+      }
+    }
+    const base = baseRgb[bestIdx];
+    return { baseIndex: bestIdx, dr: r - base[0], dg: g - base[1], db: b - base[2] };
+  }
+
+  function applyBrushAt(cx, cy, thickness, pixelData) {
+    if (!pixels) return;
+    const half = Math.floor(thickness / 2);
+    for (let dy = -half; dy < thickness - half; dy++) {
+      for (let dx = -half; dx < thickness - half; dx++) {
+        const x = cx + dx, y = cy + dy;
+        if (x >= 0 && x < canvasW && y >= 0 && y < canvasH) {
+          pixels[y][x] = { baseIndex: pixelData.baseIndex, dr: pixelData.dr, dg: pixelData.dg, db: pixelData.db };
+          updateSvgRectAt(x, y);
+        }
+      }
+    }
+  }
+
+  function updateSvgRectAt(x, y) {
+    const svg = document.querySelector('.image-section svg');
+    if (!svg || !pixels) return;
+    const rect = svg.querySelector(`rect[data-x="${x}"][data-y="${y}"]`);
+    if (!rect) return;
+    const p = pixels[y][x];
+    const base = hexToRgb(baseColors[p.baseIndex]);
+    const fill = rgbToHex(base[0] + p.dr, base[1] + p.dg, base[2] + p.db);
+    rect.setAttribute('fill', fill);
+    rect.setAttribute('data-base-index', p.baseIndex);
+    rect.setAttribute('data-dr', p.dr);
+    rect.setAttribute('data-dg', p.dg);
+    rect.setAttribute('data-db', p.db);
+  }
+
+  function swapPixels(x1, y1, x2, y2) {
+    if (!pixels || x1 === x2 && y1 === y2) return;
+    if (x1 < 0 || x1 >= canvasW || y1 < 0 || y1 >= canvasH) return;
+    if (x2 < 0 || x2 >= canvasW || y2 < 0 || y2 >= canvasH) return;
+    const tmp = pixels[y1][x1];
+    pixels[y1][x1] = pixels[y2][x2];
+    pixels[y2][x2] = tmp;
+    updateSvgRectAt(x1, y1);
+    updateSvgRectAt(x2, y2);
+    renderBasePalette();
+    renderExtractedPalette();
+  }
+
+  function handleBoxSelectDown(e) {
+    e.preventDefault();
+    const pos = coordFromEvent(e);
+    if (!pos) return;
+    if (isPencilMode || isEraserMode) {
+      isDrawing = true;
+      const thickness = isPencilMode
+        ? parseInt(document.getElementById('pencilThickness').value, 10)
+        : parseInt(document.getElementById('eraserThickness').value, 10);
+      if (isPencilMode) {
+        const hex = document.getElementById('pencilColor').value;
+        const [r, g, b] = hexToRgb(hex);
+        const pd = colorToPixelData(r, g, b);
+        if (pd) applyBrushAt(pos.x, pos.y, thickness, pd);
+      } else {
+        applyBrushAt(pos.x, pos.y, thickness, { baseIndex: 0, dr: 0, dg: 0, db: 0 });
+      }
+      return;
+    }
+    if (isPixelDragMode) {
+      isDraggingPixel = true;
+      pixelDragStartX = pos.x;
+      pixelDragStartY = pos.y;
+      return;
+    }
+    isSelecting = true;
+    selectStartX = pos.x;
+    selectStartY = pos.y;
+    updateSelectionBox(pos.x, pos.y, pos.x, pos.y);
+  }
+
+  function handleBoxSelectMove(e) {
+    if (isDrawing) {
+      const pos = coordFromEvent(e);
+      if (!pos) return;
+      e.preventDefault();
+      const thickness = isPencilMode
+        ? parseInt(document.getElementById('pencilThickness').value, 10)
+        : parseInt(document.getElementById('eraserThickness').value, 10);
+      if (isPencilMode) {
+        const hex = document.getElementById('pencilColor').value;
+        const [r, g, b] = hexToRgb(hex);
+        const pd = colorToPixelData(r, g, b);
+        if (pd) applyBrushAt(pos.x, pos.y, thickness, pd);
+      } else {
+        applyBrushAt(pos.x, pos.y, thickness, { baseIndex: 0, dr: 0, dg: 0, db: 0 });
+      }
+      return;
+    }
+    if (isDraggingPixel) return;
+    if (!isSelecting) return;
+    e.preventDefault();
+    const pos = coordFromEvent(e);
+    if (pos) updateSelectionBox(selectStartX, selectStartY, pos.x, pos.y);
+  }
+
+  function handleBoxSelectUp(e) {
+    if (isDrawing) {
+      isDrawing = false;
+      if (pixels) {
+        renderBasePalette();
+        renderExtractedPalette();
+      }
+      return;
+    }
+    if (isDraggingPixel) {
+      const pos = coordFromEvent(e);
+      if (pos && (pos.x !== pixelDragStartX || pos.y !== pixelDragStartY)) {
+        swapPixels(pixelDragStartX, pixelDragStartY, pos.x, pos.y);
+      }
+      isDraggingPixel = false;
+      return;
+    }
+    if (!isSelecting) return;
+    isSelecting = false;
+    const pos = coordFromEvent(e);
+    if (pos) {
+      const x1 = Math.min(selectStartX, pos.x);
+      const y1 = Math.min(selectStartY, pos.y);
+      const x2 = Math.max(selectStartX, pos.x);
+      const y2 = Math.max(selectStartY, pos.y);
+      if (x2 - x1 >= 0 && y2 - y1 >= 0) {
+        selectionBounds = { x1, y1, x2, y2 };
+        renderBasePalette();
+        renderExtractedPalette();
+        if (typeof updateZoomButtonState === 'function') updateZoomButtonState();
+      }
+    }
+  }
+
+  function showLoading(msg) {
+    document.getElementById('loadingMessage').textContent = msg || 'Processing image…';
+    document.getElementById('loadingOverlay').classList.add('visible');
+  }
+  function hideLoading() {
+    document.getElementById('loadingOverlay').classList.remove('visible');
+  }
+
+  function processImage(img) {
+    const dims = parseInt(document.getElementById('dimsSelectEl').value, 10);
+    const maintainAspect = document.getElementById('maintainAspectCheck').checked;
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    if (maintainAspect && nw > 0 && nh > 0) {
+      const aspect = nw / nh;
+      if (aspect >= 1) {
+        canvasW = dims;
+        canvasH = Math.max(1, Math.round(dims / aspect));
+      } else {
+        canvasH = dims;
+        canvasW = Math.max(1, Math.round(dims * aspect));
+      }
+    } else {
+      canvasW = canvasH = dims;
+    }
+    const imgData = pixelateImage(img, canvasW, canvasH);
+    const result = analyzeImage(imgData, canvasW, canvasH);
+    pixels = result.pixels;
+    baseColors = result.baseColors;
+    extractedColors = result.extractedColors;
+    history = [];
+    selectionBounds = null;
+    document.getElementById('mainContainer').style.display = 'flex';
+    document.getElementById('canvasTitle').textContent = `Canvas ${canvasW}×${canvasH}`;
+    const container = document.getElementById('svgContainer');
+    container.innerHTML = '';
+    container.appendChild(buildSvg());
+    renderBasePalette();
+    renderExtractedPalette();
+    const pencilColorEl = document.getElementById('pencilColor');
+    if (pencilColorEl && baseColors.length) pencilColorEl.value = baseColors[0];
+    const svg = container.querySelector('svg');
+    attachSvgListeners(svg);
+    const overlay = document.createElement('div');
+    overlay.className = 'selection-overlay';
+    overlay.id = 'selectionOverlay';
+    overlay.style.display = 'none';
+    overlay.innerHTML = '<div class="selection-box" id="selectionBox"></div>';
+    container.appendChild(overlay);
+    if (selectionBounds) updateSelectionBox(selectionBounds.x1, selectionBounds.y1, selectionBounds.x2, selectionBounds.y2);
+    if (typeof updateZoomButtonState === 'function') updateZoomButtonState();
+    hideLoading();
+  }
+
+  document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+
+  function setToolMode(mode) {
+    isPixelDragMode = mode === 'pixelDrag';
+    isPencilMode = mode === 'pencil';
+    isEraserMode = mode === 'eraser';
+    document.getElementById('boxSelectBtn').classList.toggle('active', mode === 'boxSelect');
+    document.getElementById('pixelDragBtn').classList.toggle('active', mode === 'pixelDrag');
+    document.getElementById('pencilBtn').classList.toggle('active', mode === 'pencil');
+    document.getElementById('eraserBtn').classList.toggle('active', mode === 'eraser');
+    document.getElementById('pencilOptions').style.display = mode === 'pencil' ? 'inline-flex' : 'none';
+    document.getElementById('eraserOptions').style.display = mode === 'eraser' ? 'inline-flex' : 'none';
+  }
+  document.getElementById('pixelDragBtn').addEventListener('click', () => setToolMode('pixelDrag'));
+  document.getElementById('boxSelectBtn').addEventListener('click', () => setToolMode('boxSelect'));
+  document.getElementById('pencilBtn').addEventListener('click', () => setToolMode('pencil'));
+  document.getElementById('eraserBtn').addEventListener('click', () => setToolMode('eraser'));
+
+  window.addEventListener('mouseup', () => {
+    if (isDrawing) {
+      isDrawing = false;
+      if (pixels) { renderBasePalette(); renderExtractedPalette(); }
+    }
+    if (isDraggingPixel) isDraggingPixel = false;
+    if (isSelecting) {
+      isSelecting = false;
+      hideSelectionBox();
+    }
+  });
+
+  document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+    selectionBounds = null;
+    hideSelectionBox();
+    if (pixels) {
+      renderBasePalette();
+      renderExtractedPalette();
+    }
+    if (typeof updateZoomButtonState === 'function') updateZoomButtonState();
+  });
+
+  document.getElementById('fileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const dims = parseInt(document.getElementById('dimsSelectEl').value, 10);
+    const maintainAspect = document.getElementById('maintainAspectCheck').checked;
+    const msg = maintainAspect ? `Loading…` : `Loading & processing ${dims}×${dims}…`;
+    showLoading(msg);
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      setTimeout(() => {
+        try {
+          processImage(img);
+        } catch (err) {
+          hideLoading();
+          alert('Error processing image: ' + (err.message || err));
+        }
+      }, 50);
+    };
+    img.onerror = () => {
+      hideLoading();
+      alert('Failed to load image.');
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  document.getElementById('maintainAspectCheck').addEventListener('change', () => {
+    if (!loadedImage) return;
+    showLoading(`Reprocessing…`);
+    setTimeout(() => {
+      try {
+        processImage(loadedImage);
+      } catch (err) {
+        hideLoading();
+        alert('Error reprocessing: ' + (err.message || err));
+      }
+    }, 50);
+  });
+
+  const ZOOM_LEVELS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 720, 1080];
+  function updateZoomButtonState() {
+    const hasSelection = !!(loadedImage && selectionBounds);
+    const zoomOut = document.getElementById('zoomOutBtn');
+    const zoomIn = document.getElementById('zoomInBtn');
+    zoomOut.disabled = !hasSelection;
+    zoomIn.disabled = !hasSelection;
+    zoomOut.title = hasSelection ? 'Zoom out on selection (fewer pixels)' : 'Select an area with Box Select to zoom';
+    zoomIn.title = hasSelection ? 'Zoom in on selection (more pixels)' : 'Select an area with Box Select to zoom';
+  }
+  document.getElementById('zoomOutBtn').addEventListener('click', () => {
+    if (!loadedImage || !selectionBounds) return;
+    const current = parseInt(document.getElementById('dimsSelectEl').value, 10);
+    const idx = ZOOM_LEVELS.indexOf(current);
+    if (idx <= 0) return;
+    const newDims = ZOOM_LEVELS[idx - 1];
+    showLoading('Zooming out on selection…');
+    cropImageToSelection(loadedImage, selectionBounds).then(cropped => {
+      loadedImage = cropped;
+      selectionBounds = null;
+      document.getElementById('dimsSelectEl').value = String(newDims);
+      processImage(cropped);
+      hideLoading();
+      updateZoomButtonState();
+    }).catch(err => {
+      hideLoading();
+      alert('Error: ' + (err.message || err));
+    });
+  });
+  document.getElementById('zoomInBtn').addEventListener('click', () => {
+    if (!loadedImage || !selectionBounds) return;
+    const current = parseInt(document.getElementById('dimsSelectEl').value, 10);
+    const idx = ZOOM_LEVELS.indexOf(current);
+    if (idx < 0 || idx >= ZOOM_LEVELS.length - 1) return;
+    const newDims = ZOOM_LEVELS[idx + 1];
+    showLoading('Zooming in on selection…');
+    cropImageToSelection(loadedImage, selectionBounds).then(cropped => {
+      loadedImage = cropped;
+      selectionBounds = null;
+      document.getElementById('dimsSelectEl').value = String(newDims);
+      processImage(cropped);
+      hideLoading();
+      updateZoomButtonState();
+    }).catch(err => {
+      hideLoading();
+      alert('Error: ' + (err.message || err));
+    });
+  });
+
+  document.getElementById('dimsSelectEl').addEventListener('change', (e) => {
+    if (!loadedImage) return;
+    const dims = parseInt(e.target.value, 10);
+    const maintainAspect = document.getElementById('maintainAspectCheck').checked;
+    const nw = loadedImage.naturalWidth, nh = loadedImage.naturalHeight;
+    let nextW = dims, nextH = dims;
+    if (maintainAspect && nw > 0 && nh > 0) {
+      const aspect = nw / nh;
+      if (aspect >= 1) { nextW = dims; nextH = Math.max(1, Math.round(dims / aspect)); }
+      else { nextH = dims; nextW = Math.max(1, Math.round(dims * aspect)); }
+    }
+    if (nextW === canvasW && nextH === canvasH) return;
+    showLoading(`Reprocessing…`);
+    setTimeout(() => {
+      try {
+        processImage(loadedImage);
+      } catch (err) {
+        hideLoading();
+        alert('Error reprocessing: ' + (err.message || err));
+      }
+    }, 50);
+  });
+
+  function undo() {
+    if (history.length === 0) return;
+    baseColors = history.pop();
+    const svg = document.querySelector('#svgContainer svg');
+    if (svg) {
+      svg.querySelectorAll('rect').forEach(rect => {
+        const bi = parseInt(rect.dataset.baseIndex, 10);
+        const dr = parseInt(rect.dataset.dr, 10), dg = parseInt(rect.dataset.dg, 10), db = parseInt(rect.dataset.db, 10);
+        const [r, g, b] = hexToRgb(baseColors[bi]);
+        rect.setAttribute('fill', rgbToHex(r + dr, g + dg, b + db));
+      });
+    }
+    renderBasePalette();
+    renderExtractedPalette();
+  }
+
+  document.getElementById('undoBtn').addEventListener('click', undo);
+
+  document.getElementById('exportPngBtn').addEventListener('click', () => {
+    if (!pixels) return;
+    const svg = document.querySelector('.image-section svg');
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+    const ctx = canvas.getContext('2d');
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvasW, canvasH);
+      const a = document.createElement('a');
+      a.download = 'pixelmagic.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  });
+
+  document.getElementById('exportSvgBtn').addEventListener('click', () => {
+    if (!pixels) return;
+    const svg = document.querySelector('.image-section svg');
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const a = document.createElement('a');
+    a.download = 'pixelmagic.svg';
+    a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
+    a.click();
+  });
+
+  updateZoomButtonState();
+})();
+</script>
+</body>
+</html>
